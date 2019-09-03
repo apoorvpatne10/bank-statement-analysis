@@ -1,6 +1,6 @@
 # bank-statement-analysis
 
-**[MMCOE Hacksprint Winners](https://github.com/apoorvpatne10/bank-statement-analysis)**
+**[MMCOE Hacksprint Winners](https://indiaforensic.com/hacksprint/)**
 
 ## Sample : All possible fradulent transactions for account no. 1196711
 
