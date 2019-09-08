@@ -1,13 +1,13 @@
 import os
 import pandas as pd
+from tqdm import tqdm
 from fuzzywuzzy import fuzz
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, redirect
 from .models import Fraud
 from .forms import MyForm
+import time
 
-# [409000611074 409000493201 409000425051 409000405747 409000438611
-#  409000493210 409000438620      1196711      1196428 409000362497]
 
 def seq_match(df_temp, trans_details):
 
@@ -20,7 +20,6 @@ def seq_match(df_temp, trans_details):
             df_res.append(df_temp.loc[i])
 
     return pd.DataFrame(df_res)
-
 
 def subsetsum(array, num):
     if num == 0 or num < 1:
@@ -52,15 +51,16 @@ def home(request):
             acc_no_curr = int(form.cleaned_data['account_choice'])
             print(acc_no_curr)
             df_acc1 = bank[bank["Account No"] == acc_no_curr]
+            df_acc1.fillna(0, inplace=True)
+            df_acc1.to_csv('acc1.csv')
             df_res = []
 
             if acc_no_curr not in list(Fraud.objects.values_list('acc_no', flat=True).distinct()):
-                print(f'Processing... {len(df_acc1)}')
+                df_length = len(df_acc1)
+                print(f'Processing... {df_length}')
                 ctr = 0
-                for i, (index, row) in enumerate(df_acc1.iterrows()):
-
-                    if i % 2 == 0:
-                        print(f"{i}/{len(df_acc1)}")
+                for (i, (index, row)), xx in zip(enumerate(df_acc1.iterrows()), tqdm(range(len(df_acc1)), ascii=True, desc='demo')):
+                    start_time = time.time()
 
                     if row["DEPOSIT AMT"] >= 0:
                         acc_no = row["Account No"]
@@ -69,7 +69,7 @@ def home(request):
                         trans_details = row["TRANSACTION DETAILS"]
 
                         df_temp =\
-                            df_acc1[(df_acc1["Account No"] == acc_no) & (df_acc1["VALUE DATE"] == date) & (df_acc1["WITHDRAWAL AMT"] > 0)]
+                            df_acc1[(df_acc1["VALUE DATE"] == date) & (df_acc1["WITHDRAWAL AMT"] > 0)]
 
                         # Further reducing the search space by getting matching transactions
                         df_temp_res = seq_match(df_temp, trans_details)
@@ -77,10 +77,12 @@ def home(request):
                         if not df_temp_res.empty:
                             withdrawal_amt = list(df_temp_res["WITHDRAWAL AMT"])
                             subset =  subsetsum(withdrawal_amt, deposit_amt)
-                            if len(subset) > 0:
+                            if len(subset) > 2:
                                 df_res.append([acc_no, trans_details, date, deposit_amt, subset, len(subset)])
                                 ctr += 1
                                 print(f'Found possible fraud transaction : {ctr}!')
+                    if time.time() - start_time > 3:
+                        continue
 
                 df_res = pd.DataFrame(df_res, columns=['Account_No', 'Transaction_Details', 'Date', 'Deposit_Amount', 'Withdrawal_Subset', 'subset_size'])
                 df_res.reset_index(drop=True, inplace=True)
@@ -109,5 +111,5 @@ def home(request):
             'fraud_trans': None,
             'accounts': None
         }
-        # return redirect('http://localhost:8000')
+
         return render(request, 'detect/index.html', context)

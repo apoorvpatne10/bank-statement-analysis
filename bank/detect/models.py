@@ -8,3 +8,6 @@ class Fraud(models.Model):
     deposit_amt = models.FloatField()
     withdraw_amt = models.TextField()
     subset_size = models.IntegerField(default=0)
+
+    def __str__(self):
+        return self.trans_details
